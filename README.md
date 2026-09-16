@@ -27,23 +27,37 @@
 
 ## Vast.ai Setup & Quickstart
 
-### 1. Rent a GPU on Vast.ai
-* **Recommended GPU:** 1x **NVIDIA RTX 4090 (24GB)** (~$0.25 - $0.35/hr) or **A100 (80GB)**.
-* **Recommended Docker Image:** `pytorch/pytorch:2.4.0-cuda12.4-cudnn9-devel` or `nvidia/cuda:12.4.1-devel-ubuntu22.04`.
-* **Disk Space:** Allocate **60GB - 80GB** disk to store model checkpoints locally.
+### Vast.ai Lifecycle Scripts (Same Pattern as `bahiranan`)
 
-### 2. Clone & Bootstrap the Instance
-Connect via SSH to your Vast.ai instance and run:
+You can launch, manage, sync, and generate remotely from your local terminal with zero manual setup:
 
 ```bash
-git clone https://github.com/sroycode/vajan.git
-cd vajan
+# 1. Search for available GPUs (e.g. RTX 4090 under $0.60/hr)
+./scripts/30_search_gpus.sh "RTX 4090" 0.60
 
-# Run automated dependency and CUDA setup
-./scripts/vast_setup.sh
+# 2. Launch instance with 70GB disk for models (saves coordinates to .vast_instance)
+./scripts/31_launch_instance.sh <OFFER_ID> 70
 
-# Pre-cache model weights locally
-./scripts/download_models.sh
+# 3. Check instance status, uptime, and spend
+./scripts/32_instance_status.sh
+
+# 4. Stream code to remote GPU and run setup
+./scripts/33_sync_code_up.sh
+
+# 5. Open an interactive SSH shell anytime
+./scripts/38_ssh.sh
+
+# 6. Run video generation remotely in background
+./scripts/34_run_remote_video.sh my_video.mp4 "royal Renaissance banquet" cinematic_film 0.75
+
+# 7. Tail live generation progress
+./scripts/35_tail_logs.sh
+
+# 8. Sync generated MP4s and metadata back to your local ./outputs/
+./scripts/36_sync_output_down.sh
+
+# 9. Terminate instance and stop billing when finished
+./scripts/37_destroy_instance.sh
 ```
 
 ---
