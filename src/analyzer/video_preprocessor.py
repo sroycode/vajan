@@ -1,11 +1,24 @@
+from __future__ import annotations
+
 import os
 import json
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
-import cv2
-import numpy as np
-from PIL import Image
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 
 class VideoPreprocessor:

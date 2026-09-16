@@ -80,9 +80,10 @@ class VideoGenerationEngine:
         output_path: str,
         denoise_strength: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
-        fps: int = 16
-    ) -> str:
-        """Executes structural video-to-video generation.
+        fps: int = 16,
+        first_frame_anchor: Optional[Image.Image] = None
+    ) -> Tuple[str, Image.Image]:
+        """Executes structural video-to-video generation with frame continuity.
         
         Args:
             prompt: The reimagined prompt from VLM/user.
@@ -91,6 +92,7 @@ class VideoGenerationEngine:
             denoise_strength: Strength of reimagination (0.65 - 0.85).
             num_inference_steps: Diffusion denoising steps.
             fps: Output framerate.
+            first_frame_anchor: Last generated frame of the preceding chunk.
         """
         self.load_pipeline(mode="video_to_video")
 
@@ -100,7 +102,14 @@ class VideoGenerationEngine:
         # CogVideoX requires frame count to be (k * 8 + 1) e.g. 49
         num_frames = len(input_frames)
         valid_frames = ((num_frames - 1) // 8) * 8 + 1
-        trimmed_frames = input_frames[:valid_frames]
+        trimmed_frames = list(input_frames[:valid_frames])
+
+        # Auto-regressive continuity: bind first frame to last frame of previous chunk
+        if first_frame_anchor is not None and len(trimmed_frames) > 0:
+            target_size = trimmed_frames[0].size
+            anchor_resized = first_frame_anchor.resize(target_size, Image.Resampling.LANCZOS)
+            trimmed_frames[0] = anchor_resized
+            print("[VideoEngine] Anchored first frame to previous chunk's final frame for seamless continuity.")
 
         print(f"[VideoEngine] Starting generation:")
         print(f"  - Prompt: '{prompt[:100]}...'")
@@ -130,15 +139,21 @@ class VideoGenerationEngine:
                     generator=generator
                 )
 
-        output_frames = output.frames[0]
-        
+        output_frames = list(output.frames[0])
+
+        # Ensure exact frame-level stitch match if anchored
+        if first_frame_anchor is not None and len(output_frames) > 0:
+            output_frames[0] = first_frame_anchor.resize(output_frames[0].size, Image.Resampling.LANCZOS)
+
+        last_frame = output_frames[-1]
+
         # Ensure output directory exists
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
         print(f"[VideoEngine] Exporting video to {output_path}...")
         export_to_video(output_frames, output_path, fps=fps)
 
-        return output_path
+        return output_path, last_frame
 
     def unload(self):
         """Unload pipeline to free memory."""

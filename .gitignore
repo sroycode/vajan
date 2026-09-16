@@ -7,6 +7,8 @@ __pycache__/
 env/
 venv/
 .venv/
+.env.local
+*.json
 
 # Outputs and Temp files
 outputs/
@@ -22,8 +24,10 @@ temp/
 *.pth
 checkpoints/
 models/
+samples/
 
 # System / IDE
 .DS_Store
 .idea/
 .vscode/
+

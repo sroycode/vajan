@@ -81,21 +81,23 @@ class LocalVLMCaptioner:
         """Analyzes video frames for physical actions and outputs a reimagined diffusion prompt."""
         self.load()
 
-        # Construct prompt specifically geared towards candid video understanding & gag punchlines
+        # Construct prompt enforcing attire fidelity, authentic family action, and cinematic elevation
         analysis_instruction = (
-            "You are an expert film director, visual storyteller, and AI video prompt engineer. "
+            "You are an expert cinematographer, visual storyteller, and AI video prompt engineer. "
             "Analyze these sequential frames from a candid video clip carefully: "
-            "1. Trace the complete narrative arc, gag, or prank twist: What happens at the climax or punchline? "
-            "   (e.g., Does a figure vanish, does a sheet/cloak collapse flat onto the floor revealing no one inside, "
-            "   or do people vault/jump over furniture in panic?) "
-            "2. Describe the physical cause-and-effect: The approach of the entity -> the interaction/touch -> "
-            "   the sudden deflation/collapse into empty fabric on the floor -> the onlookers' dramatic terrified reactions. "
-            "3. Formulate a final reimagined cinematic video prompt preserving this exact narrative gag and structural timing, "
-            "   while elevating the visuals with rich cinematic atmosphere, professional cinematography, and high-fidelity textures. "
+            "1. Identify the subjects, their exact actions, gestures, emotional expressions, and camera motion. "
+            "2. CRITICAL ATTIRE FIDELITY RULE: Maintain the authentic garment category and cultural attire of each subject. "
+            "   If someone is wearing a saree, describe them as wearing an elegant, high-quality silk or cotton saree with authentic "
+            "   pallu drape and rich woven texture—NEVER substitute a saree with a Western gown, dress, or costume. "
+            "   If someone is wearing a kurta or traditional tunic, keep it as a refined kurta. "
+            "   If wearing casual wear, describe clean, well-tailored modern apparel. Elevate the fabric quality, weave, and lighting. "
+            "3. Formulate a final reimagined cinematic video prompt preserving these exact human actions and garment types, "
+            "   while elevating the visuals with rich 35mm film cinematography, natural atmospheric lighting, shallow depth of field, "
+            "   and authentic photorealistic textures."
         )
 
         if user_creative_prompt:
-            analysis_instruction += f"\nThe user's desired reimagining theme: '{user_creative_prompt}'."
+            analysis_instruction += f"\nAdditional creative direction: '{user_creative_prompt}'."
 
         messages = [
             {
@@ -105,8 +107,8 @@ class LocalVLMCaptioner:
                     {"type": "text", "text": (
                         f"{analysis_instruction}\n"
                         "Return your output strictly formatted as:\n"
-                        "ACTION_CHOREOGRAPHY: <concise summary of exact physical movements and camera track>\n"
-                        "REIMAGINED_PROMPT: <rich, visually stunning prompt describing new characters, wardrobe, lighting, world, executing those exact movements>"
+                        "ACTION_CHOREOGRAPHY: <concise summary of exact physical movements, postures, and camera track>\n"
+                        "REIMAGINED_PROMPT: <rich, visually stunning prompt describing characters, their authentic garments (e.g. elegant silk saree), lighting, and environment executing those exact movements>"
                     )}
                 ]
             }

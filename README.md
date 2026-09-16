@@ -1,99 +1,199 @@
 # Vajan (वजन)
 
-**Vajan** is a 100% local, self-contained AI video generation and reimagination pipeline designed for **Vast.ai** GPU instances. It takes low-resolution, candid mobile/family videos (MP4) and reimagines them into high-production cinematic videos while preserving the core human actions, gestures, and camera choreography.
+**Vajan** is a 100% local, self-contained AI video generation and reimagination pipeline designed for **Vast.ai** GPU instances (featuring **NVIDIA Blackwell RTX 5090**, **RTX 4090**, and **A100/H100**). 
+
+It takes low-resolution, candid mobile/family videos (MP4) and reimagines them into high-production cinematic films while locking human actions, gestures, and camera choreography 1:1.
 
 ---
 
-## Key Features
+## Key Technical Innovations
 
-* **100% Local & Self-Hosted:** No external APIs (no OpenAI, no Gemini API, no cloud SaaS). Runs entirely on your rented Vast.ai GPU.
-* **Candid Mobile Video Preprocessing:**
-  * **Auto-Orientation:** Automatically parses EXIF / MP4 container rotation metadata (fixes sideways vertical phone videos).
-  * **VFR to CFR Normalization:** Converts mobile Variable Frame Rates into steady 16 FPS required by diffusion models.
-  * **Sensor Noise Smoothing & CLAHE Contrast:** Reduces high-ISO sensor grain from low-light indoor family clips while keeping motion silhouettes intact.
-  * **Smart Aspect Ratio Bucketing:** Automatically adapts to 9:16 portrait (480x720), 16:9 landscape (720x480), or 1:1 square.
-* **Local Vision-Language Understanding (`Qwen2.5-VL-7B`):**
-  * Reads the video clip locally in 4-bit / 8-bit precision (~5GB VRAM).
-  * Extracts human choreography: gestures, facial emotional dynamics, physical interactions, and camera movement.
-  * Synthesizes an imaginative cinematic prompt that replaces casual clothing and domestic clutter with high-end aesthetic designs.
-* **Memory-Safe Sequential VRAM Offloading:**
-  * VLM loads, extracts prompts, and unloads completely (`torch.cuda.empty_cache()`), freeing the GPU for video generation.
-  * Enables running both a 7B VLM and a 5B+ Video DiT on a single **RTX 4090 (24GB)**.
-* **Structural Video DiT (`CogVideoX-5B` / `Wan2.1`):**
-  * Utilizes latent video-to-video with calibrated denoising strength (0.70 - 0.80).
-  * Preserves macro motion dynamics while completely reimagining faces, skin, lighting, and wardrobe.
+* **Dense Structural Transfer, Not Text-to-Video:**  
+  Unlike text-to-video pipelines that discard spatial choreography, Vajan conditions directly on the source video latents and structural depth. Physical actions (laughing, pointing, walking, dancing) and camera pans remain strictly locked in space and timing.
+* **Cultural Attire & Garment Fidelity:**  
+  Guarantees cultural clothing preservation. If a subject is wearing a **saree**, it remains an authentic, elegantly draped silk or cotton saree—**never** substituted with a Western gown or dress. Kurtas remain kurtas, and casual wear remains clean, well-tailored modern apparel.
+* **Auto-Regressive Frame Continuity Across Chunks:**  
+  When processing long videos in 5-second segments, each chunk anchors its first frame to the final generated frame of the preceding chunk ($F_0^{(N+1)} = F_{end}^{(N)}$). This eliminates visual flicker, jump cuts, and clothing/facial morphing across chunk seams.
+* **Long-Form (Up to 600s / 10 Minutes) Video Support:**  
+  Processes long clips through intelligent sequential chunking, automatically extracting and preserving the original audio track 1:1, and remuxing it with the final stitched video.
+* **Single Unified CLI Interface:**  
+  One unified CLI handles searching GPU offers, renting instances, bootstrapping environments, monitoring jobs, syncing files, and destroying instances to stop billing.
 
 ---
 
-## Vast.ai Setup & Quickstart
+## System Architecture
 
-### Vast.ai Lifecycle Scripts (Same Pattern as `bahiranan`)
+```mermaid
+flowchart TD
+    A["Raw Input Video (up to 600s)<br/>e.g. sample01.mp4"] --> B["FFmpeg Audio Extractor<br/>(1:1 original sync track)"]
+    A --> C["Sequential Chunker<br/>(5.0s temporal segments)"]
 
-You can launch, manage, sync, and generate remotely from your local terminal with zero manual setup:
+    subgraph "Per-Chunk Auto-Regressive Diffusion Loop"
+        C --> D["Preprocess & Normalize<br/>(VFR to CFR 16fps, auto-orient)"]
+        D --> E["Cultural Attire & Action VLM<br/>(Preserves sarees, kurtas, choreography)"]
+        F["Anchor Frame<br/>(Last frame from Chunk N-1)"] -.-> G
+        E --> G["Video DiT Synthesis<br/>(CogVideoX V2V, denoise 0.74)"]
+        G --> H["Generated Chunk Video + Output Frame"]
+        H -.-> F
+    end
 
-```bash
-# 1. Search for available GPUs (e.g. RTX 4090 under $0.60/hr)
-./scripts/30_search_gpus.sh "RTX 4090" 0.60
-
-# 2. Launch instance with 70GB disk for models (saves coordinates to .vast_instance)
-./scripts/31_launch_instance.sh <OFFER_ID> 70
-
-# 3. Check instance status, uptime, and spend
-./scripts/32_instance_status.sh
-
-# 4. Stream code to remote GPU and run setup
-./scripts/33_sync_code_up.sh
-
-# 5. Open an interactive SSH shell anytime
-./scripts/38_ssh.sh
-
-# 6. Run video generation remotely in background
-./scripts/34_run_remote_video.sh my_video.mp4 "royal Renaissance banquet" cinematic_film 0.75
-
-# 7. Tail live generation progress
-./scripts/35_tail_logs.sh
-
-# 8. Sync generated MP4s and metadata back to your local ./outputs/
-./scripts/36_sync_output_down.sh
-
-# 9. Terminate instance and stop billing when finished
-./scripts/37_destroy_instance.sh
+    H --> I["FFmpeg Seamless Stitcher<br/>(Frame-accurate sequence join)"]
+    B --> J["Audio Remuxing Engine"]
+    I --> J
+    J --> K["Final Reimagined Cinematic Video (MP4)"]
 ```
 
 ---
 
-## Usage
+## Single CLI Interface: `vajan.py`
 
-### Basic Command
+All operations are controlled via a single command-line interface:
 
-```bash
-python run.py \
-  --input path/to/family_clip.mp4 \
-  --prompt "a royal Renaissance banquet with velvet robes, candlelight and gold goblets" \
-  --style cinematic_film
+```text
+python vajan.py [-v VIDEO] [-c CONFIG] -a {start,stop,check,getfile,cleanup,delete} [-s STYLE]
 ```
 
-### Command-Line Arguments
+### Command Flags
 
-| Flag | Description | Default |
+| Flag | Name | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `-v` | `--video` | When starting | Path to local input video (`.mp4`) |
+| `-c` | `--config` | After start | Path to session config JSON (e.g. `sample01_2609162221.json`) |
+| `-a` | `--action` | **Yes** | `start`, `check`, `stop`, `getfile`, `cleanup`, `delete` |
+| `-s` | `--style` | No | Artistic style preset (default: `cinematic`) |
+
+---
+
+## Complete CLI Workflows
+
+### 1. Launch a New Video Generation (`-v file -a start`)
+Searches available Vast.ai GPU hardware, displays the top options in a ranked table, prompts you for selection, rents the chosen GPU with a 70GB disk, syncs code, and starts background processing:
+
+```bash
+python vajan.py -v samples/sample01.mp4 -a start -s cinematic
+```
+
+**Interactive Hardware Selector:**
+```text
+==========================================================================================
+#   OFFER_ID    GPU MODEL          VRAM    RATE        DL/UL SPEED     LOCATION           ARCH
+------------------------------------------------------------------------------------------
+1   50540439    1x RTX 5090        31GB    $0.269/hr   664/261M        Japan, JP          Blackwell ★
+2   44155834    1x A100 PCIE       40GB    $0.268/hr   853/783M        Florida, US        Standard
+3   50051530    1x RTX 4090        23GB    $0.304/hr   573/544M        Brazil, BR         Standard
+4   48319246    1x RTX 5090        31GB    $0.362/hr   704/79M         Slovakia, SK       Blackwell ★
+==========================================================================================
+
+Select hardware option [1-10] (default: 1) or enter Offer ID: 1
+```
+
+> **Config Naming Rule:**  
+> Automatically writes a config JSON formatted as **`<clean_video_name>_YYMMDDHHMM.json`** into `VAJAN_HOME` (default `.`), e.g., `sample01_2609162221.json`.
+
+---
+
+### 2. Check Generation Progress (`-c json -a check`)
+Connects to the Vast.ai instance, verifies process PID status, displays real-time chunk progress, and prints the latest log output:
+
+```bash
+python vajan.py -c sample01_2609162221.json -a check
+```
+
+**Example Status Output:**
+```text
+===========================================================================
+  VAJAN JOB STATUS: sample01
+  Instance ID  : #50540439 (RTX 5090)
+  Remote PID   : 28412
+===========================================================================
+  Instance State : RUNNING ($0.269/hr)
+  Job State      : PROCESSING (Actively generating frames)
+  Output Ready   : NO
+
+--- Recent Log Output ---
+  | [Plan] Processing 6.9s video in 2 sequential chunk(s)...
+  | [Progress] Chunk 1/2 (50.0%) | Time: 0.0s - 5.0s
+  | [Action Detected] Subjects interacting warmly in living room.
+  | [VideoEngine] Starting generation: denoise 0.74, steps 32...
+---------------------------------------------------------------------------
+```
+
+---
+
+### 3. Download the Finished Video (`-c json -a getfile`)
+Checks whether the reimagined video is ready on the server. If ready, downloads the MP4 and metadata JSON to `./outputs/` (or `$VAJAN_HOME/outputs/`). If not ready, informs you of current progress:
+
+```bash
+python vajan.py -c sample01_2609162221.json -a getfile
+```
+
+---
+
+### 4. Stop the Running Job (`-c json -a stop`)
+Safely stops the active video diffusion process without destroying the instance:
+
+```bash
+python vajan.py -c sample01_2609162221.json -a stop
+```
+
+---
+
+### 5. Clean Up Server Scratch Data (`-c json -a cleanup`)
+Deletes temporary video chunks and raw inputs from `/workspace/vajan/` to free disk space, while **preserving installed packages and downloaded model weights**:
+
+```bash
+python vajan.py -c sample01_2609162221.json -a cleanup
+```
+
+---
+
+### 6. Re-use Existing Instance for a New Video (`-c json -a start -v new_file`)
+Avoids the overhead of renting and bootstrapping a new instance by re-using the existing setup:
+* **Safety Lock:** If the previous process is still running, **it refuses to run** to prevent GPU VRAM collisions.
+* If idle, it writes a **new** config JSON (`<new_video>_YYMMDDHHMM.json`), uploads the new video, and starts generation immediately.
+
+```bash
+python vajan.py -c sample01_2609162221.json -a start -v samples/another_video.mp4
+```
+
+---
+
+### 7. Permanently Delete Instance & Stop Billing (`-c json -a delete`)
+Kills any remote processes and permanently terminates the Vast.ai instance. **Never fails; always succeeds in stopping billing:**
+
+```bash
+python vajan.py -c sample01_2609162221.json -a delete
+```
+
+---
+
+## Environment & Configuration
+
+### Vast.ai API Key
+The CLI automatically loads your Vast.ai API key from:
+1. `VASTAI_KEY` or `VAST_API_KEY` environment variables.
+2. Local `.env.local` or `.env` files.
+3. Sibling project `.env.local` (e.g. `../bahiranan/.env.local`).
+4. `~/.vast_api_key`.
+
+### `VAJAN_HOME` Directory
+Set `VAJAN_HOME` to control where session JSON configs and downloaded video outputs are stored:
+
+```bash
+export VAJAN_HOME="/path/to/my_workspace"
+```
+*(Defaults to current working directory `.` if unset).*
+
+---
+
+## Hardware Benchmarks: Compute Time per 1 Minute of Video
+
+| Configuration | Compute Time for 1 Min Video (~14 chunks) | Cost per Minute of Video on Vast.ai |
 | :--- | :--- | :--- |
-| `-i`, `--input` | Path to the source mobile video (`.mp4`) | *Required* |
-| `-p`, `--prompt` | Creative direction for reimagining | `None` (VLM will auto-elevate) |
-| `-s`, `--style` | Style preset (`cinematic_film`, `cyberpunk_scifi`, `vintage_victorian`, `studio_fashion`, `watercolor_anime`) | `cinematic_film` |
-| `-d`, `--denoise`| Denoising strength (0.60 to 0.85) | `0.75` |
-| `--steps` | Diffusion inference steps | `35` |
-| `-o`, `--output` | Output folder for videos and run metadata | `outputs` |
-| `-c`, `--config` | Path to custom YAML configuration | `config.yaml` |
-
----
-
-## How to Tune Structural Transfer
-
-The `--denoise` flag controls the balance between source loyalty and creative imagination:
-
-* **0.55 – 0.65 (High Loyalty):** Preserves original colors, shirt patterns, and room features. Retains too much of the low-res mobile artifacts.
-* **0.70 – 0.80 (Sweet Spot):** **Recommended.** The faces, hair, and clothing are completely regenerated with high-fidelity detail and new identity. The physical movements, walking paths, head turns, and camera pans match the source video.
-* **0.85 – 0.95 (High Imagination):** Video DiT prioritizes the prompt over the source video. Actions may diverge from the original footage.
+| **CogVideoX-5B on 1x RTX 5090 (Blackwell 32GB)** | **~7.5 – 9.0 minutes** | **~$0.05** |
+| **CogVideoX-5B on 1x A100 (80GB SXM)** | **~7.0 – 8.5 minutes** | **~$0.18** |
+| **CogVideoX-5B on 1x RTX 4090 (24GB w/ offload)** | **~18 – 23 minutes** | **~$0.15** |
+| **Wan2.1 (14B FP8) on 1x RTX 5090 (Blackwell 32GB)** | **~19 – 22 minutes** | **~$0.12** |
 
 ---
 
@@ -101,17 +201,24 @@ The `--denoise` flag controls the balance between source loyalty and creative im
 
 ```text
 vajan/
-├── config.yaml                    # System configuration & style presets
-├── requirements.txt               # Deep learning & video dependencies
+├── vajan.py                  # Primary single CLI entrypoint (start, check, stop, etc.)
+├── run.py                    # Universal runner (routes to vajan.py or run_engine.py)
+├── run_engine.py             # Server-side background execution engine
+├── config.yaml               # System parameters & aesthetic style palettes
+├── requirements.txt          # Deep learning & video dependencies
+├── .env.local                # Local Vast.ai credentials (gitignored)
+├── samples/
+│   └── sample01.mp4          # Low-resolution sample mobile video
 ├── scripts/
-│   ├── vast_setup.sh              # One-click environment bootstrap for Vast.ai
-│   └── download_models.sh         # Local model weights downloader
-├── src/
-│   ├── analyzer/
-│   │   ├── video_preprocessor.py  # Orientation fix, VFR->CFR, noise filtering
-│   │   └── vlm_captioner.py       # Local Qwen2.5-VL video action analyzer
-│   ├── generator/
-│   │   └── video_engine.py        # Local Diffusers DiT inference
-│   └── pipeline.py                # End-to-end memory-safe orchestrator
-└── run.py                         # CLI entrypoint
+│   ├── vast_setup.sh         # One-click environment bootstrap for Vast.ai GPUs
+│   └── download_models.sh    # Model weights pre-downloader
+└── src/
+    ├── analyzer/
+    │   ├── video_preprocessor.py  # Orientation fix, VFR->CFR, CLAHE contrast
+    │   └── vlm_captioner.py       # Attire & choreography analyzer (Qwen-VL)
+    ├── cloud/
+    │   └── vast_client.py         # Lightweight sovereign Vast.ai API client
+    ├── generator/
+    │   └── video_engine.py        # Frame-anchored Video DiT synthesis engine
+    └── pipeline.py                # Long-form chunking, continuity & audio remuxer
 ```
