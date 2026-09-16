@@ -81,13 +81,17 @@ class LocalVLMCaptioner:
         """Analyzes video frames for physical actions and outputs a reimagined diffusion prompt."""
         self.load()
 
-        # Construct prompt specifically geared towards family/candid motion extraction
+        # Construct prompt specifically geared towards candid video understanding & gag punchlines
         analysis_instruction = (
-            "You are an expert film director and AI video prompt engineer. "
-            "Analyze these sequential frames from a candid video clip. "
-            "1. Identify the core physical actions, body movements, gestures, and camera motion. "
-            "2. Describe the motion and choreography concisely (e.g. 'a person leans in, points at the table, turns around laughing, camera gently pans'). "
-            "3. Formulate a final reimagined cinematic video prompt where the actions are preserved, but the characters, clothing, lighting, and environment are elevated to high-end cinematic quality. "
+            "You are an expert film director, visual storyteller, and AI video prompt engineer. "
+            "Analyze these sequential frames from a candid video clip carefully: "
+            "1. Trace the complete narrative arc, gag, or prank twist: What happens at the climax or punchline? "
+            "   (e.g., Does a figure vanish, does a sheet/cloak collapse flat onto the floor revealing no one inside, "
+            "   or do people vault/jump over furniture in panic?) "
+            "2. Describe the physical cause-and-effect: The approach of the entity -> the interaction/touch -> "
+            "   the sudden deflation/collapse into empty fabric on the floor -> the onlookers' dramatic terrified reactions. "
+            "3. Formulate a final reimagined cinematic video prompt preserving this exact narrative gag and structural timing, "
+            "   while elevating the visuals with rich cinematic atmosphere, professional cinematography, and high-fidelity textures. "
         )
 
         if user_creative_prompt:
