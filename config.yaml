@@ -1,0 +1,62 @@
+# Vajan: Local Video Generator & Re-imaginer Configuration
+
+# Preprocessing Settings for Mobile/Family Videos
+preprocessing:
+  target_fps: 16                    # Standard DiT native framerate (16 fps)
+  max_frames: 49                    # 49 frames (~3 sec) or 81 frames (~5 sec) for video DiTs
+  auto_orient: true                 # Automatically detect and fix EXIF/rotation tags in phone MP4s
+  normalize_lighting: true          # Apply subtle CLAHE adaptive contrast normalization for dark/low-light home videos
+  # Supported aspect ratio buckets (Width x Height)
+  resolutions:
+    landscape: [720, 480]           # 16:9 or 3:2 landscape
+    portrait: [480, 720]            # 9:16 or 2:3 vertical phone video
+    square: [512, 512]              # 1:1 or 4:3 cropped
+
+# Local Vision-Language Model (VLM) for Video Understanding & Prompt Expansion
+vlm:
+  model_id: "Qwen/Qwen2.5-VL-7B-Instruct"
+  quantization: "4bit"             # Options: '4bit', '8bit', 'bf16' (4bit keeps VRAM under 6GB)
+  max_new_tokens: 384
+  temperature: 0.7
+  sample_frames: 12                 # Number of evenly spaced frames passed to VLM for scene analysis
+
+# Video Diffusion Generation Engine
+generator:
+  # Primary model choice: "Wan-AI/Wan2.1-T2V-1.3B" or "THUDM/CogVideoX-5B"
+  default_model: "THUDM/CogVideoX-5B"
+  precision: "bfloat16"             # 'bfloat16' or 'float16'
+  enable_model_cpu_offload: true    # Saves VRAM by keeping components in RAM until needed
+  enable_vae_slicing: true
+  enable_vae_tiling: true
+  
+  # Generation parameters
+  num_inference_steps: 35
+  guidance_scale: 6.5
+  
+  # Structural Transfer Denoising Strength:
+  # 0.50 - 0.60: Closely follows original colors and shapes (too loyal)
+  # 0.70 - 0.80: Recommended Sweet Spot! Preserves actions and camera moves, completely reimagines faces, clothes, background.
+  # 0.85 - 0.95: High divergence (almost pure text-to-video, can lose original choreography)
+  denoise_strength: 0.75
+
+# Built-in Reimagination Style Presets
+styles:
+  cinematic_film:
+    prefix: "35mm cinematic film still, masterpiece, rich Kodak Portra color grading, atmospheric golden hour lighting, 8k resolution, photorealistic textures."
+    suffix: "film grain, depth of field, high-budget Hollywood cinematography, highly detailed."
+  
+  cyberpunk_scifi:
+    prefix: "Futuristic neo-Tokyo cyberpunk aesthetic, intricate cybernetic enhancements, holographic reflections, neon volumetric rim lighting, blade runner style."
+    suffix: "hyper-detailed, Unreal Engine 5 render, cinematic octan render, ray tracing."
+
+  vintage_victorian:
+    prefix: "Victorian era oil painting aesthetic, opulent 19th century period wardrobe, baroque architectural background, Rembrandt lighting."
+    suffix: "classical masterpiece, rich velvet textures, museum painting quality."
+
+  studio_fashion:
+    prefix: "High-fashion Vogue editorial photography, modern haute couture designer clothing, sleek minimalist architectural backdrop, studio softbox lighting."
+    suffix: "sharp focus, clean aesthetic, crisp textures, award winning portrait."
+
+  watercolor_anime:
+    prefix: "Studio Ghibli inspired anime aesthetic, soft watercolor painted backgrounds, vibrant natural lighting, beautiful cel-shaded character design."
+    suffix: "Makoto Shinkai style, whimsical, clean lines, artistic masterpiece."

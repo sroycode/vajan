@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Outputs and Temp files
+outputs/
+temp/
+*.mp4
+*.avi
+*.mov
+
+# Model cache & checkpoints
+*.safetensors
+*.bin
+*.pt
+*.pth
+checkpoints/
+models/
+
+# System / IDE
+.DS_Store
+.idea/
+.vscode/
